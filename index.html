@@ -1,0 +1,424 @@
+import { useState, useRef, useEffect } from "react";
+
+const LANGS = [
+  { id: "javascript", label: "JS",   ext: "js"   },
+  { id: "typescript", label: "TS",   ext: "ts"   },
+  { id: "python",     label: "PY",   ext: "py"   },
+  { id: "html",       label: "HTML", ext: "html" },
+  { id: "css",        label: "CSS",  ext: "css"  },
+  { id: "php",        label: "PHP",  ext: "php"  },
+];
+
+const STARTER = {
+  javascript: `// 🚀 Start coding or ask AI for help\nfunction greet(name) {\n  return \`Hello, \${name}! Welcome to CodeForge.\`;\n}\n\nconsole.log(greet("World"));\nconsole.log(greet("Developer"));`,
+  typescript: `// TypeScript starter\ninterface User {\n  name: string;\n  age: number;\n}\n\nconst greet = (user: User): string => {\n  return \`Hello, \${user.name}! You are \${user.age}.\`;\n};\n\nconsole.log(greet({ name: "World", age: 25 }));`,
+  python:     `# Python starter\ndef greet(name: str) -> str:\n    return f"Hello, {name}! Welcome to CodeForge."\n\nprint(greet("World"))\nprint(greet("Developer"))`,
+  html:       `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>My Page</title>\n  <style>\n    body { font-family: sans-serif; padding: 2rem; }\n    h1 { color: #f5a623; }\n  </style>\n</head>\n<body>\n  <h1>Hello, World!</h1>\n  <p>Welcome to CodeForge.</p>\n</body>\n</html>`,
+  css:        `/* CSS Starter */\n:root {\n  --primary: #f5a623;\n  --bg: #0c0a06;\n  --text: #e8d5a3;\n}\n\nbody {\n  background: var(--bg);\n  color: var(--text);\n  font-family: monospace;\n  padding: 2rem;\n}`,
+  php:        `<?php\n// PHP starter\nfunction greet(string $name): string {\n    return "Hello, $name! Welcome to CodeForge.";\n}\n\necho greet("World");\necho "\\n";\necho greet("Developer");`,
+};
+
+const CHIPS = ["Explain this code","Fix the bugs","Add error handling","Optimize it","Write tests","Add comments"];
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Fira+Code:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080705;--bg2:#0f0d09;--bg3:#161210;--bg4:#201a10;
+  --a:#F5A623;--a2:#c47d0e;--ag:rgba(245,166,35,.14);--ab:rgba(245,166,35,.22);--af:rgba(245,166,35,.05);
+  --text:#e8d5a3;--dim:#7a6840;--muted:#3e3220;
+  --cyan:#00d4ff;--green:#6fcf97;--red:#f06060;
+}
+html,body,#root{height:100%;overflow:hidden;background:var(--bg)}
+.app{display:flex;flex-direction:column;height:100%;font-family:'Fira Code',monospace;color:var(--text);background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:6px;padding:0 14px;height:50px;background:var(--bg2);border-bottom:1px solid var(--ab);flex-shrink:0;overflow-x:auto}
+.logo{display:flex;align-items:center;gap:8px;margin-right:6px;flex-shrink:0}
+.logo-box{width:30px;height:30px;background:var(--a);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 14px rgba(245,166,35,.35)}
+.logo-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--a);letter-spacing:-.3px}
+.sep{width:1px;height:24px;background:var(--ab);flex-shrink:0}
+.lang-btn{padding:4px 10px;border:1px solid transparent;border-radius:20px;background:transparent;color:var(--dim);font-size:11px;font-family:'Fira Code',monospace;letter-spacing:.8px;cursor:pointer;transition:all .15s;flex-shrink:0}
+.lang-btn:hover{color:var(--a);border-color:var(--ab)}
+.lang-btn.on{background:var(--ag);border-color:var(--a);color:var(--a)}
+.spacer{flex:1}
+.run-btn{display:flex;align-items:center;gap:5px;padding:6px 14px;background:var(--a);border:none;border-radius:7px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--bg);cursor:pointer;flex-shrink:0;transition:all .15s;box-shadow:0 0 12px rgba(245,166,35,.3)}
+.run-btn:hover{background:#ffb833;box-shadow:0 0 20px rgba(245,166,35,.5)}
+.run-btn:active{transform:scale(.97)}
+.body{display:flex;flex:1;overflow:hidden}
+.editor-side{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--ab);min-width:0;overflow:hidden}
+.editor-bar{display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:36px;background:var(--bg2);border-bottom:1px solid rgba(245,166,35,.1);flex-shrink:0}
+.filetab{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--a)}
+.dot{width:6px;height:6px;background:var(--a);border-radius:50%}
+.bar-actions{display:flex;gap:5px}
+.bar-btn{padding:3px 9px;background:transparent;border:1px solid var(--muted);border-radius:4px;color:var(--dim);font-size:10px;font-family:'Fira Code',monospace;cursor:pointer;transition:all .15s}
+.bar-btn:hover{border-color:var(--a);color:var(--a)}
+.editor-scroll{flex:1;overflow-y:auto;overflow-x:auto;display:flex;background:var(--bg);scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.gutter{position:sticky;left:0;z-index:1;background:var(--bg2);border-right:1px solid rgba(245,166,35,.07);padding:16px 0;flex-shrink:0;user-select:none}
+.lnum{display:block;width:44px;text-align:right;padding-right:10px;height:22px;line-height:22px;font-size:12px;color:var(--muted)}
+.lnum.hi{color:var(--a2)}
+.code-wrap{flex:1;padding:16px 16px 16px 12px;min-width:0}
+.code-ta{width:100%;min-height:100%;background:transparent;border:none;outline:none;color:var(--text);font-family:'Fira Code',monospace;font-size:13px;line-height:22px;resize:none;overflow:hidden;tab-size:2;caret-color:var(--a);white-space:pre}
+.code-ta::selection{background:rgba(245,166,35,.18)}
+.output{flex-shrink:0;background:var(--bg2);border-top:1px solid var(--ab);display:flex;flex-direction:column;max-height:150px}
+.out-bar{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;flex-shrink:0;border-bottom:1px solid rgba(245,166,35,.08)}
+.out-label{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.sdot.err{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.out-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;line-height:1}
+.out-close:hover{color:var(--a)}
+.out-lines{overflow-y:auto;padding:6px 14px 10px;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.out-line{display:block;font-size:12px;line-height:1.7}
+.out-line.err{color:var(--red)}
+.out-line.ok{color:var(--text)}
+.chat-side{width:360px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg2)}
+.chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ab);flex-shrink:0}
+.chat-title{display:flex;align-items:center;gap:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--a)}
+.badge{padding:2px 7px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);border-radius:10px;font-size:9px;color:var(--cyan);letter-spacing:.8px;font-family:'Fira Code',monospace}
+.ctx-toggle{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--dim);cursor:pointer;user-select:none}
+.toggle{width:28px;height:14px;background:var(--bg4);border:1px solid var(--ab);border-radius:7px;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--a)}
+.toggle::after{content:'';position:absolute;top:1px;left:1px;width:10px;height:10px;background:var(--bg);border-radius:50%;transition:transform .2s}
+.toggle.on::after{transform:translateX(14px)}
+.chips{padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px;border-bottom:1px solid rgba(245,166,35,.07);flex-shrink:0}
+.chip{padding:3px 9px;background:var(--af);border:1px solid var(--ab);border-radius:12px;font-size:10px;color:var(--dim);cursor:pointer;font-family:'Fira Code',monospace;transition:all .15s;white-space:nowrap}
+.chip:hover{background:var(--ag);color:var(--a);border-color:var(--a)}
+.msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
+.empty-icon{width:50px;height:50px;background:var(--af);border:1px solid var(--ab);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.empty-t{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--a)}
+.empty-d{font-size:11px;color:var(--dim);line-height:1.6;max-width:220px}
+.msg{display:flex;flex-direction:column;gap:3px;animation:fadeUp .2s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.msg-who{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:0 3px}
+.msg.user .msg-who{color:var(--a2)}
+.msg.ai .msg-who{color:var(--cyan);opacity:.6}
+.bubble{padding:9px 11px;border-radius:8px;font-size:12px;line-height:1.65;word-break:break-word}
+.msg.user .bubble{background:var(--af);border:1px solid var(--ab);color:var(--text);align-self:flex-end;max-width:92%}
+.msg.ai .bubble{background:var(--bg3);border:1px solid rgba(0,212,255,.1);color:var(--text)}
+.bubble pre{background:var(--bg);border:1px solid var(--ab);border-radius:6px;padding:9px 11px;margin:7px 0;overflow-x:auto;font-size:11px;line-height:1.55;white-space:pre}
+.bubble code{background:var(--bg4);padding:1px 5px;border-radius:3px;color:var(--a);font-size:11px}
+.bubble strong{color:var(--a)}
+.thinking{display:flex;align-items:center;gap:6px;padding:9px 11px;background:var(--bg3);border:1px solid rgba(0,212,255,.1);border-radius:8px;font-size:11px;color:var(--dim)}
+.thinking span{color:var(--cyan);animation:blink 1.2s infinite}
+.thinking span:nth-child(2){animation-delay:.2s}
+.thinking span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
+.input-area{padding:9px 11px;border-top:1px solid var(--ab);background:var(--bg);flex-shrink:0;display:flex;flex-direction:column;gap:7px}
+.input-row{display:flex;gap:6px;align-items:flex-end}
+.chat-ta{flex:1;background:var(--bg3);border:1px solid var(--ab);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Fira Code',monospace;font-size:12px;line-height:1.5;resize:none;outline:none;overflow-y:hidden;min-height:36px;max-height:96px;transition:border-color .15s}
+.chat-ta:focus{border-color:var(--a)}
+.chat-ta::placeholder{color:var(--muted)}
+.send{width:36px;height:36px;background:var(--a);border:none;border-radius:8px;cursor:pointer;font-size:16px;color:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;box-shadow:0 0 10px rgba(245,166,35,.3);font-weight:700}
+.send:hover:not(:disabled){background:#ffb833;box-shadow:0 0 18px rgba(245,166,35,.5)}
+.send:disabled{opacity:.35;cursor:not-allowed}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px}
+`;
+
+function runJS(code) {
+  const logs = [];
+  const con = {
+    log:  (...a) => logs.push({ t:"ok",  v: a.map(x => typeof x==="object" ? JSON.stringify(x,null,2) : String(x)).join(" ") }),
+    error:(...a) => logs.push({ t:"err", v: a.map(String).join(" ") }),
+    warn: (...a) => logs.push({ t:"ok",  v: "⚠ "+a.map(String).join(" ") }),
+    info: (...a) => logs.push({ t:"ok",  v: "ℹ "+a.map(String).join(" ") }),
+  };
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function("console", code)(con);
+    if (!logs.length) logs.push({ t:"ok", v:"✓ Executed (no output)" });
+  } catch(e) {
+    logs.push({ t:"err", v:"✗ "+e.message });
+  }
+  return logs;
+}
+
+function MsgContent({ text }) {
+  const parts = [];
+  const re = /```[\w]*\n?([\s\S]*?)```/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push({ type:"text", v: text.slice(last, m.index) });
+    parts.push({ type:"code", v: m[1].trimEnd() });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ type:"text", v: text.slice(last) });
+
+  function renderInline(s) {
+    return s.split(/(`[^`\n]+`)/).map((chunk, i) => {
+      if (chunk.startsWith("`") && chunk.endsWith("`") && chunk.length > 2)
+        return <code key={i}>{chunk.slice(1,-1)}</code>;
+      return chunk.split(/(\*\*[^*]+\*\*)/).map((c,j) => {
+        if (c.startsWith("**") && c.endsWith("**"))
+          return <strong key={j}>{c.slice(2,-2)}</strong>;
+        return c.split("\n").map((line, k, arr) =>
+          <span key={k}>{line}{k < arr.length-1 ? <br/> : null}</span>
+        );
+      });
+    });
+  }
+
+  return (
+    <div className="bubble">
+      {parts.map((p,i) =>
+        p.type==="code"
+          ? <pre key={i}>{p.v}</pre>
+          : <span key={i}>{renderInline(p.v)}</span>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  const [lang, setLang]       = useState(LANGS[0]);
+  const [code, setCode]       = useState(STARTER.javascript);
+  const [curLine, setCurLine] = useState(1);
+  const [output, setOutput]   = useState(null);
+  const [msgs, setMsgs]       = useState([]);
+  const [input, setInput]     = useState("");
+  const [busy, setBusy]       = useState(false);
+  const [withCtx, setWithCtx] = useState(true);
+  const [copied, setCopied]   = useState(false);
+
+  const codeRef   = useRef(null);
+  const chatRef   = useRef(null);
+  const msgsEnd   = useRef(null);
+
+  // auto-size code textarea
+  useEffect(() => {
+    const ta = codeRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+  }, [code]);
+
+  // auto-size chat input
+  useEffect(() => {
+    const ta = chatRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 96) + "px";
+  }, [input]);
+
+  // scroll to bottom on new message
+  useEffect(() => {
+    msgsEnd.current?.scrollIntoView({ behavior:"smooth" });
+  }, [msgs, busy]);
+
+  function changeLang(l) {
+    setLang(l);
+    setCode(STARTER[l.id] || "");
+    setOutput(null);
+    setCurLine(1);
+  }
+
+  function getCurLine(ta) {
+    return (ta.value.substring(0, ta.selectionStart).match(/\n/g) || []).length + 1;
+  }
+
+  function handleTab(e) {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const ta = e.target;
+    const s = ta.selectionStart, end = ta.selectionEnd;
+    const next = code.substring(0,s) + "  " + code.substring(end);
+    setCode(next);
+    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s+2; });
+  }
+
+  function runCode() {
+    if (lang.id !== "javascript") {
+      setOutput([
+        { t:"ok", v:`▶ ${lang.label} runs server-side — use JS to run here.` },
+        { t:"ok", v:"💡 Use AI to explain, debug, or convert your code." }
+      ]);
+      return;
+    }
+    setOutput(runJS(code));
+  }
+
+  function copyCode() {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  async function sendMsg(text) {
+    const msg = text.trim();
+    if (!msg || busy) return;
+    setInput("");
+
+    const userMsg = { role:"user", content: msg };
+    setMsgs(prev => [...prev, userMsg]);
+    setBusy(true);
+
+    const system = [
+      "You are CodeForge AI — an expert coding assistant inside a code editor.",
+      "Be concise. Use markdown: **bold**, `inline code`, ```lang\\ncode``` blocks.",
+      `Current language: ${lang.label} (.${lang.ext}).`,
+      withCtx && code.trim()
+        ? `\nCurrent editor code:\n\`\`\`${lang.id}\n${code}\n\`\`\``
+        : "",
+    ].join("\n");
+
+    const history = [...msgs, userMsg].map(m => ({ role:m.role, content:m.content }));
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system,
+          messages: history,
+        }),
+      });
+      const data = await res.json();
+      const reply = (data.content||[]).map(c=>c.text||"").join("").trim()
+        || "Sorry, no response received. Try again.";
+      setMsgs(prev => [...prev, { role:"assistant", content:reply }]);
+    } catch {
+      setMsgs(prev => [...prev, { role:"assistant", content:"⚠ Network error — please try again." }]);
+    }
+    setBusy(false);
+  }
+
+  const lines   = code.split("\n");
+  const hasErr  = output?.some(l => l.t === "err");
+
+  return (
+    <>
+      <style>{CSS}</style>
+      <div className="app">
+
+        {/* TOPBAR */}
+        <div className="topbar">
+          <div className="logo">
+            <div className="logo-box">⚡</div>
+            <span className="logo-name">CodeForge</span>
+          </div>
+          <div className="sep" />
+          {LANGS.map(l => (
+            <button key={l.id} className={`lang-btn ${lang.id===l.id?"on":""}`}
+              onClick={() => changeLang(l)}>{l.label}</button>
+          ))}
+          <div className="spacer" />
+          <button className="run-btn" onClick={runCode}>▶ Run</button>
+        </div>
+
+        {/* BODY */}
+        <div className="body">
+
+          {/* EDITOR */}
+          <div className="editor-side">
+            <div className="editor-bar">
+              <div className="filetab"><div className="dot"/>main.{lang.ext}</div>
+              <div className="bar-actions">
+                <button className="bar-btn" onClick={copyCode}>{copied?"✓ Copied":"Copy"}</button>
+                <button className="bar-btn" onClick={() => { setCode(STARTER[lang.id]||""); setOutput(null); }}>Reset</button>
+              </div>
+            </div>
+
+            <div className="editor-scroll">
+              <div className="gutter">
+                {lines.map((_,i) => (
+                  <span key={i} className={`lnum ${curLine===i+1?"hi":""}`}>{i+1}</span>
+                ))}
+              </div>
+              <div className="code-wrap">
+                <textarea
+                  ref={codeRef}
+                  className="code-ta"
+                  value={code}
+                  onChange={e => { setCode(e.target.value); setCurLine(getCurLine(e.target)); }}
+                  onKeyDown={handleTab}
+                  onClick={e => setCurLine(getCurLine(e.target))}
+                  onKeyUp={e => setCurLine(getCurLine(e.target))}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {output && (
+              <div className="output">
+                <div className="out-bar">
+                  <div className="out-label">
+                    <div className={`sdot ${hasErr?"err":""}`}/>Output
+                  </div>
+                  <button className="out-close" onClick={() => setOutput(null)}>✕</button>
+                </div>
+                <div className="out-lines">
+                  {output.map((l,i) => <span key={i} className={`out-line ${l.t}`}>{l.v}</span>)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* CHAT */}
+          <div className="chat-side">
+            <div className="chat-head">
+              <div className="chat-title">
+                AI Assistant <span className="badge">CLAUDE</span>
+              </div>
+              <div className="ctx-toggle" onClick={() => setWithCtx(v=>!v)}>
+                <div className={`toggle ${withCtx?"on":""}`}/>
+                Send code
+              </div>
+            </div>
+
+            <div className="chips">
+              {CHIPS.map(c => (
+                <button key={c} className="chip" onClick={() => sendMsg(c)}>{c}</button>
+              ))}
+            </div>
+
+            <div className="msgs">
+              {msgs.length===0 && !busy && (
+                <div className="empty">
+                  <div className="empty-icon">⚡</div>
+                  <div className="empty-t">CodeForge AI</div>
+                  <div className="empty-d">Ask me to explain, debug, optimize, or generate code.</div>
+                </div>
+              )}
+              {msgs.map((m,i) => (
+                <div key={i} className={`msg ${m.role==="user"?"user":"ai"}`}>
+                  <div className="msg-who">{m.role==="user"?"You":"AI"}</div>
+                  <MsgContent text={m.content}/>
+                </div>
+              ))}
+              {busy && (
+                <div className="msg ai">
+                  <div className="msg-who">AI</div>
+                  <div className="thinking">Thinking <span>.</span><span>.</span><span>.</span></div>
+                </div>
+              )}
+              <div ref={msgsEnd}/>
+            </div>
+
+            <div className="input-area">
+              <div className="input-row">
+                <textarea
+                  ref={chatRef}
+                  className="chat-ta"
+                  placeholder="Ask about your code… (Enter to send)"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(input); } }}
+                  rows={1}
+                />
+                <button className="send" onClick={() => sendMsg(input)} disabled={busy || !input.trim()}>↑</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
+}
